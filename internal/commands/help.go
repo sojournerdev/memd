@@ -12,9 +12,9 @@ Usage:
   memd <command>
 
 Commands:
-  help			Show this help
-  doctor    Check installation and environment health
-  version   Print version information
+  help    Show this help
+  doctor  Check installation and environment health
+  version Print version information
 	
 Exit codes:
   0  success
