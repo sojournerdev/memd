@@ -66,9 +66,15 @@ Run `memd doctor` to confirm your installation and see where state is stored:
 ```bash
 $ memd doctor
 OK
-state_dir: /home/user/.local/state/memd
-db_path:   /home/user/.local/state/memd/memd.db
-blobs_dir: /home/user/.local/state/memd/blobs
+state_dir:    /home/marcos/.local/state/memd
+db_path:      /home/marcos/.local/state/memd/memd.db
+blobs_dir:    /home/marcos/.local/state/memd/blobs
+journal_mode: wal
+sqlite_ver:   3.51.2
+foreign_keys: true
+busy_timeout: 5000ms
+synchronous:  NORMAL (1)
+db_writable:  true
 ```
 
 ## Data Storage
