@@ -23,9 +23,12 @@ dev:
 .PHONY: ci
 ci:
 	@set -eu; \
+	echo "==> tidy"; \
 	go mod tidy; \
 	git diff --exit-code -- go.mod go.sum; \
-	go fmt ./...; \
-	git diff --exit-code; \
+	echo "==> fmt"; \
+	test -z "$$(gofmt -l .)" || (echo "gofmt needed:"; gofmt -l .; exit 1); \
+	echo "==> vet"; \
+	go vet ./...; \
+	echo "==> test"; \
 	go test -count=1 ./...; \
-	go vet ./...
