@@ -55,6 +55,7 @@ memd help
 
 ```bash
 memd help       # Show available commands
+memd init       # Initialize local memd state and schema
 memd version    # Print version information
 memd doctor     # Validate local configuration
 ```

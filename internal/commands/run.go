@@ -17,6 +17,8 @@ func Run(args []string, out, errOut io.Writer) int {
 		return ExitOK
 	case "version":
 		return Version(out)
+	case "init":
+		return Init(out, errOut)
 	case "doctor":
 		return Doctor(out, errOut)
 	default:
