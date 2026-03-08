@@ -12,6 +12,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const dbTimeout = 3 * time.Second
+
+// Open returns a ready-to-use SQLite handle for memd.
+// It ensures paths, validates access, configures connection limits, verifies
+// connectivity, and applies required PRAGMAs.
 func Open(ctx context.Context, p paths.Paths) (*sql.DB, error) {
 	if p.DBPath == "" {
 		return nil, errors.New("db: empty DBPath")
@@ -47,30 +52,11 @@ func Open(ctx context.Context, p paths.Paths) (*sql.DB, error) {
 }
 
 func ping(parent context.Context, db *sql.DB) error {
-	ctx, cancel := withShortTimeout(parent, 3*time.Second)
+	ctx, cancel := withShortTimeout(parent, dbTimeout)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("db: ping: %w", err)
-	}
-	return nil
-}
-
-func applyPragmas(parent context.Context, db *sql.DB) error {
-	ctx, cancel := withShortTimeout(parent, 3*time.Second)
-	defer cancel()
-
-	stmts := []string{
-		"PRAGMA journal_mode = WAL;",
-		"PRAGMA foreign_keys = ON;",
-		"PRAGMA busy_timeout = 5000;",
-		"PRAGMA synchronous = NORMAL;",
-	}
-
-	for _, s := range stmts {
-		if _, err := db.ExecContext(ctx, s); err != nil {
-			return fmt.Errorf("db: pragma %q: %w", s, err)
-		}
 	}
 	return nil
 }
