@@ -44,7 +44,11 @@ func TestInit_OK_Idempotent_AndCreatesSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() {
+		if err := conn.Close(); err != nil {
+			t.Errorf("conn.Close() error = %v", err)
+		}
+	})
 
 	migrationRowsAfterFirstRun := countRows(t, conn, `SELECT COUNT(*) FROM migrations`)
 	if migrationRowsAfterFirstRun == 0 {

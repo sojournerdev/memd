@@ -1,9 +1,6 @@
 package commands
 
-import (
-	"fmt"
-	"io"
-)
+import "io"
 
 func Run(args []string, out, errOut io.Writer) int {
 	if len(args) < 2 {
@@ -22,7 +19,7 @@ func Run(args []string, out, errOut io.Writer) int {
 	case "doctor":
 		return Doctor(out, errOut)
 	default:
-		fmt.Fprintf(errOut, "memd: unknown command %q\n\n", args[1])
+		tryWritef(errOut, "memd: unknown command %q\n\n", args[1])
 		PrintHelp(errOut)
 		return ExitUsage
 	}

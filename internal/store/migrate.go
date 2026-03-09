@@ -153,7 +153,6 @@ func appliedVersions(ctx context.Context, tx *sql.Tx) (map[int]bool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("store: query migrations: %w", err)
 	}
-	defer rows.Close()
 
 	out := map[int]bool{}
 	for rows.Next() {
@@ -165,6 +164,9 @@ func appliedVersions(ctx context.Context, tx *sql.Tx) (map[int]bool, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: iterate migrations: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("store: close migrations rows: %w", err)
 	}
 	return out, nil
 }
