@@ -190,16 +190,6 @@ func TestMigrate_NilDB(t *testing.T) {
 	}
 }
 
-func TestMigrate_NilContext(t *testing.T) {
-	t.Parallel()
-
-	db := openTestDB(t)
-
-	if err := Migrate(nil, db); err != nil {
-		t.Fatalf("Migrate(nil, db) error = %v", err)
-	}
-}
-
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 

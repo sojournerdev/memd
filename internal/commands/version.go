@@ -1,10 +1,8 @@
 package commands
 
-import (
-	"fmt"
-	"io"
-)
+import "io"
 
+// These are overridden at build time via -ldflags.
 var (
 	VersionString = "dev"
 	CommitHash    = "unknown"
@@ -12,6 +10,8 @@ var (
 )
 
 func Version(out io.Writer) int {
-	fmt.Fprintf(out, "memd %s (commit=%s, built=%s)\n", VersionString, CommitHash, BuildDate)
+	if err := writef(out, "memd %s (commit=%s, built=%s)\n", VersionString, CommitHash, BuildDate); err != nil {
+		return ExitError
+	}
 	return ExitOK
 }
