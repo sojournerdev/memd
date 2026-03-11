@@ -20,7 +20,7 @@ It is transparent and predictable by design. Your data lives locally, and you ca
 - **Boring by design** — predictable behavior over clever abstractions
 
 ## Requirements
-- Go `1.25` or newer
+- Go `1.26` or newer
 
 Verify your installed version:
 
@@ -56,6 +56,7 @@ memd help
 ```bash
 memd help       # Show available commands
 memd init       # Initialize local memd state and schema
+memd ingest .   # Index a repository into local searchable memory
 memd version    # Print version information
 memd doctor     # Validate local configuration
 ```

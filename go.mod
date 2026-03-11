@@ -1,6 +1,6 @@
 module github.com/sojournerdev/memd
 
-go 1.25.7
+go 1.26.1
 
 require modernc.org/sqlite v1.45.0
 

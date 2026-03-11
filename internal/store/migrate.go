@@ -136,11 +136,13 @@ func parseVersion(filename string) (int, error) {
 func ensureMigrationsTable(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS migrations (
-			version INTEGER PRIMARY KEY,
+			version INTEGER PRIMARY KEY CHECK (version > 0),
 			name TEXT NOT NULL,
 			checksum TEXT NOT NULL,
-			applied_at_ns INTEGER NOT NULL
-		);
+			applied_at_ns INTEGER NOT NULL CHECK (applied_at_ns > 0),
+			CHECK (length(name) > 0),
+			CHECK (length(checksum) > 0)
+		) WITHOUT ROWID;
 	`)
 	if err != nil {
 		return fmt.Errorf("store: ensure migrations table: %w", err)
