@@ -47,7 +47,7 @@ func TestResolve_EnvPrecedenceAndShape(t *testing.T) {
 			}
 
 			t.Setenv(EnvHome, memd)
-			t.Setenv("XDG_STATE_HOME", xdg)
+			t.Setenv(EnvXDGStateHome, xdg)
 
 			p, err := Resolve()
 			if err != nil {
@@ -56,8 +56,8 @@ func TestResolve_EnvPrecedenceAndShape(t *testing.T) {
 
 			wantState := tt.want(memd, xdg)
 			assertEqual(t, "StateDir", p.StateDir, wantState)
-			assertEqual(t, "DBPath", p.DBPath, filepath.Join(wantState, "memd.db"))
-			assertEqual(t, "BlobsDir", p.BlobsDir, filepath.Join(wantState, "blobs"))
+			assertEqual(t, "DBPath", p.DBPath, filepath.Join(wantState, dbFileName))
+			assertEqual(t, "BlobsDir", p.BlobsDir, filepath.Join(wantState, blobsDirName))
 		})
 	}
 }
@@ -65,7 +65,7 @@ func TestResolve_EnvPrecedenceAndShape(t *testing.T) {
 func TestResolve_DefaultStateDir_InvariantsOnly(t *testing.T) {
 	// OS-dependent; only assert invariants to avoid brittle expectations.
 	t.Setenv(EnvHome, "")
-	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv(EnvXDGStateHome, "")
 
 	p, err := Resolve()
 	if err != nil {
@@ -79,17 +79,13 @@ func TestResolve_DefaultStateDir_InvariantsOnly(t *testing.T) {
 	}
 
 	state := filepath.Clean(p.StateDir)
-	assertEqual(t, "DBPath", p.DBPath, filepath.Join(state, "memd.db"))
-	assertEqual(t, "BlobsDir", p.BlobsDir, filepath.Join(state, "blobs"))
+	assertEqual(t, "DBPath", p.DBPath, filepath.Join(state, dbFileName))
+	assertEqual(t, "BlobsDir", p.BlobsDir, filepath.Join(state, blobsDirName))
 }
 
 func TestEnsure_CreatesDirectories(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
-	p := Paths{
-		StateDir: state,
-		DBPath:   filepath.Join(state, "memd.db"),
-		BlobsDir: filepath.Join(state, "blobs"),
-	}
+	p := mustNew(t, state)
 
 	if err := p.Ensure(); err != nil {
 		t.Fatalf("Ensure() error = %v", err)
@@ -103,8 +99,14 @@ func TestEnsure_EmptyStateDir(t *testing.T) {
 	assertErrContains(t, err, "paths: empty StateDir")
 }
 
+func TestNewPaths_EmptyStateDir(t *testing.T) {
+	_, err := newPaths("")
+	assertErrContains(t, err, "paths: empty StateDir")
+}
+
 func TestValidateReadWrite_HappyPath(t *testing.T) {
-	if err := (Paths{StateDir: t.TempDir()}).ValidateReadWrite(); err != nil {
+	p := mustNew(t, t.TempDir())
+	if err := p.ValidateReadWrite(); err != nil {
 		t.Fatalf("ValidateReadWrite() error = %v", err)
 	}
 }
@@ -115,7 +117,8 @@ func TestValidateReadWrite_EmptyStateDir(t *testing.T) {
 }
 
 func TestValidateReadWrite_StateDirMissing(t *testing.T) {
-	err := (Paths{StateDir: filepath.Join(t.TempDir(), "missing")}).ValidateReadWrite()
+	p := mustNew(t, filepath.Join(t.TempDir(), "missing"))
+	err := p.ValidateReadWrite()
 	if err == nil {
 		t.Fatalf("ValidateReadWrite() expected error, got nil")
 	}
@@ -131,11 +134,22 @@ func TestValidateReadWrite_StateDirIsFile(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	err := (Paths{StateDir: path}).ValidateReadWrite()
+	p := mustNew(t, path)
+	err := p.ValidateReadWrite()
 	if err == nil {
 		t.Fatalf("ValidateReadWrite() expected error, got nil")
 	}
 	assertErrContains(t, err, "state dir is not a directory")
+}
+
+func TestValidate_DetectsInconsistentPaths(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	err := (Paths{
+		StateDir: state,
+		DBPath:   filepath.Join(state, "other.db"),
+		BlobsDir: filepath.Join(state, blobsDirName),
+	}).validate()
+	assertErrContains(t, err, "paths: DBPath must be")
 }
 
 func assertDir(t *testing.T, path string) {
@@ -164,4 +178,13 @@ func assertErrContains(t *testing.T, err error, substr string) {
 	if !strings.Contains(err.Error(), substr) {
 		t.Fatalf("error = %q; want to contain %q", err.Error(), substr)
 	}
+}
+
+func mustNew(t *testing.T, state string) Paths {
+	t.Helper()
+	p, err := newPaths(state)
+	if err != nil {
+		t.Fatalf("newPaths(%q) error = %v", state, err)
+	}
+	return p
 }

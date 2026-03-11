@@ -9,10 +9,14 @@ import (
 )
 
 const (
-	AppName = "memd"
-	EnvHome = "MEMD_HOME"
+	AppName         = "memd"
+	EnvHome         = "MEMD_HOME"
+	EnvXDGStateHome = "XDG_STATE_HOME"
 
 	dirPerm = 0o700
+
+	dbFileName   = "memd.db"
+	blobsDirName = "blobs"
 )
 
 type Paths struct {
@@ -21,23 +25,20 @@ type Paths struct {
 	BlobsDir string
 }
 
+// Resolve determines the memd state directory from environment/OS defaults
+// and returns a normalized Paths value for that location.
 func Resolve() (Paths, error) {
 	stateDir, err := stateDir()
 	if err != nil {
 		return Paths{}, err
 	}
-	stateDir = filepath.Clean(stateDir)
-
-	return Paths{
-		StateDir: stateDir,
-		DBPath:   filepath.Join(stateDir, "memd.db"),
-		BlobsDir: filepath.Join(stateDir, "blobs"),
-	}, nil
+	return newPaths(stateDir)
 }
 
+// Ensure validates p and creates the state and blobs directories if needed.
 func (p Paths) Ensure() error {
-	if p.StateDir == "" {
-		return errors.New("paths: empty StateDir")
+	if err := p.validate(); err != nil {
+		return err
 	}
 	if err := os.MkdirAll(p.StateDir, dirPerm); err != nil {
 		return fmt.Errorf("paths: mkdir state dir: %w", err)
@@ -48,9 +49,11 @@ func (p Paths) Ensure() error {
 	return nil
 }
 
+// ValidateReadWrite validates p, confirms the state directory exists and is a
+// directory, and verifies write access by creating and removing a temp file.
 func (p Paths) ValidateReadWrite() error {
-	if p.StateDir == "" {
-		return errors.New("paths: empty StateDir")
+	if err := p.validate(); err != nil {
+		return err
 	}
 
 	fi, err := os.Stat(p.StateDir)
@@ -66,8 +69,53 @@ func (p Paths) ValidateReadWrite() error {
 		return fmt.Errorf("paths: write check failed: %w", err)
 	}
 	name := f.Name()
-	_ = f.Close()
-	_ = os.Remove(name)
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return fmt.Errorf("paths: write check close temp file: %w", err)
+	}
+	if err := os.Remove(name); err != nil {
+		return fmt.Errorf("paths: write check remove temp file: %w", err)
+	}
+	return nil
+}
+
+func newPaths(stateDir string) (Paths, error) {
+	if stateDir == "" {
+		return Paths{}, errors.New("paths: empty StateDir")
+	}
+	stateDir = filepath.Clean(stateDir)
+	p := Paths{
+		StateDir: stateDir,
+		DBPath:   filepath.Join(stateDir, dbFileName),
+		BlobsDir: filepath.Join(stateDir, blobsDirName),
+	}
+	if err := p.validate(); err != nil {
+		return Paths{}, err
+	}
+	return p, nil
+}
+
+func (p Paths) validate() error {
+	if p.StateDir == "" {
+		return errors.New("paths: empty StateDir")
+	}
+	stateDir := filepath.Clean(p.StateDir)
+
+	if p.DBPath == "" {
+		return errors.New("paths: empty DBPath")
+	}
+	wantDB := filepath.Join(stateDir, dbFileName)
+	if filepath.Clean(p.DBPath) != wantDB {
+		return fmt.Errorf("paths: DBPath must be %s", wantDB)
+	}
+
+	if p.BlobsDir == "" {
+		return errors.New("paths: empty BlobsDir")
+	}
+	wantBlobs := filepath.Join(stateDir, blobsDirName)
+	if filepath.Clean(p.BlobsDir) != wantBlobs {
+		return fmt.Errorf("paths: BlobsDir must be %s", wantBlobs)
+	}
 	return nil
 }
 
@@ -75,7 +123,7 @@ func stateDir() (string, error) {
 	if v := os.Getenv(EnvHome); v != "" {
 		return v, nil
 	}
-	if v := os.Getenv("XDG_STATE_HOME"); v != "" {
+	if v := os.Getenv(EnvXDGStateHome); v != "" {
 		return filepath.Join(v, AppName), nil
 	}
 
