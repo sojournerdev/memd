@@ -12,6 +12,7 @@ Commands:
   help    Show this help
   init    Initialize local memd state and database schema
   doctor  Check installation and environment health
+  ingest  Index a repository into local searchable memory
   version Print version information
 
 Exit codes:

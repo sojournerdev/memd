@@ -1,69 +1,36 @@
-PRAGMA foreign_keys = ON;
+CREATE TABLE repo_files (
+    repo_root TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
+    chunk_count INTEGER NOT NULL CHECK (chunk_count >= 0),
+    PRIMARY KEY (repo_root, file_path),
+    CHECK (length(repo_root) > 0),
+    CHECK (length(file_path) > 0),
+    CHECK (length(content_sha256) > 0)
+) WITHOUT ROWID;
 
-CREATE TABLE memories (
-    id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    title TEXT NOT NULL DEFAULT '',
+CREATE TABLE repo_chunks (
+    chunk_id TEXT PRIMARY KEY,
+    repo_root TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
     content TEXT NOT NULL,
-    source TEXT NOT NULL DEFAULT '',
-    checksum TEXT NOT NULL,
-    created_at_ns INTEGER NOT NULL CHECK (created_at_ns > 0),
-    updated_at_ns INTEGER NOT NULL CHECK (updated_at_ns > 0),
-    archived_at_ns INTEGER NOT NULL DEFAULT 0 CHECK (archived_at_ns >= 0),
-    CHECK (kind IN ('note', 'conversation', 'fact', 'summary', 'artifact')),
-    CHECK (length(id) > 0),
-    CHECK (length(checksum) > 0),
-    CHECK (updated_at_ns >= created_at_ns)
+    content_sha256 TEXT NOT NULL,
+    FOREIGN KEY (repo_root, file_path) REFERENCES repo_files(repo_root, file_path) ON DELETE CASCADE,
+    UNIQUE (repo_root, file_path, chunk_index),
+    CHECK (length(chunk_id) > 0),
+    CHECK (length(content_sha256) > 0)
 ) WITHOUT ROWID;
 
-CREATE TABLE memory_chunks (
-    id TEXT PRIMARY KEY,
-    memory_id TEXT NOT NULL,
-    ord INTEGER NOT NULL CHECK (ord >= 0),
-    content TEXT NOT NULL,
-    token_count INTEGER NOT NULL DEFAULT 0 CHECK (token_count >= 0),
-    created_at_ns INTEGER NOT NULL CHECK (created_at_ns > 0),
-    FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE,
-    UNIQUE (memory_id, ord),
-    CHECK (length(id) > 0)
-) WITHOUT ROWID;
+CREATE INDEX idx_repo_chunks_repo_file_chunk
+    ON repo_chunks(repo_root, file_path, chunk_index);
 
-CREATE TABLE memory_links (
-    from_memory_id TEXT NOT NULL,
-    to_memory_id TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    created_at_ns INTEGER NOT NULL CHECK (created_at_ns > 0),
-    PRIMARY KEY (from_memory_id, to_memory_id, kind),
-    FOREIGN KEY (from_memory_id) REFERENCES memories(id) ON DELETE CASCADE,
-    FOREIGN KEY (to_memory_id) REFERENCES memories(id) ON DELETE CASCADE,
-    CHECK (kind IN ('references', 'relates_to', 'derived_from')),
-    CHECK (from_memory_id <> to_memory_id)
-) WITHOUT ROWID;
+CREATE INDEX idx_repo_chunks_repo_root
+    ON repo_chunks(repo_root);
 
-CREATE TABLE meta (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    CHECK (length(key) > 0)
-) WITHOUT ROWID;
-
-CREATE INDEX idx_memories_kind_created_at_ns
-    ON memories(kind, created_at_ns DESC);
-
-CREATE INDEX idx_memories_updated_at_ns
-    ON memories(updated_at_ns DESC);
-
-CREATE INDEX idx_memories_archived_at_ns
-    ON memories(archived_at_ns);
-
-CREATE INDEX idx_memory_chunks_memory_id_ord
-    ON memory_chunks(memory_id, ord);
-
-CREATE INDEX idx_memory_links_from_memory_id
-    ON memory_links(from_memory_id);
-
-CREATE INDEX idx_memory_links_to_memory_id
-    ON memory_links(to_memory_id);
-
-INSERT INTO meta(key, value) VALUES
-    ('schema_version', '1');
-    
+CREATE VIRTUAL TABLE repo_chunks_fts USING fts5(
+    chunk_id UNINDEXED,
+    content,
+    tokenize = 'unicode61'
+);

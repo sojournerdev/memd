@@ -18,6 +18,8 @@ func Run(args []string, out, errOut io.Writer) int {
 		return Init(out, errOut)
 	case "doctor":
 		return Doctor(out, errOut)
+	case "ingest":
+		return Ingest(args[2:], out, errOut)
 	default:
 		tryWritef(errOut, "memd: unknown command %q\n\n", args[1])
 		PrintHelp(errOut)

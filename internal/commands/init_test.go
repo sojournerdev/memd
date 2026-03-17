@@ -69,19 +69,24 @@ func TestInit_OK_Idempotent_AndCreatesSchema(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	for _, table := range []string{"migrations", "memories", "memory_chunks", "memory_links", "meta"} {
+	for _, table := range []string{
+		"migrations",
+		"repo_files",
+		"repo_chunks",
+		"repo_chunks_fts",
+	} {
 		if !tableExists(t, ctx, conn, table) {
 			t.Fatalf("expected table %q to exist after init", table)
 		}
 	}
 
-	var schemaVersion string
-	err = conn.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = 'schema_version'`).Scan(&schemaVersion)
+	var latestMigrationVersion int
+	err = conn.QueryRowContext(ctx, `SELECT COALESCE(MAX(version), 0) FROM migrations`).Scan(&latestMigrationVersion)
 	if err != nil {
-		t.Fatalf("query schema_version error = %v", err)
+		t.Fatalf("query latest migration version error = %v", err)
 	}
-	if schemaVersion != "1" {
-		t.Fatalf("schema_version = %q, want %q", schemaVersion, "1")
+	if latestMigrationVersion != 1 {
+		t.Fatalf("latest migration version = %d, want %d", latestMigrationVersion, 1)
 	}
 }
 
