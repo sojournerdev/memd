@@ -17,7 +17,6 @@ It is transparent and predictable by design. Your data lives locally, and you ca
 - **Local-first** — state lives on your machine, not in the cloud
 - **Inspectable** — simple, human-readable storage
 - **Minimal CLI surface** — a small, focused command set
-- **Boring by design** — predictable behavior over clever abstractions
 
 ## Requirements
 - Go `1.26` or newer
@@ -37,12 +36,13 @@ git clone https://github.com/sojournerdev/memd.git
 cd memd
 ```
 
-Build locally (binary stays in this directory):
+For development, use the Makefile:
 
 ```bash
-go build -o memd ./cmd/memd
-./memd help
+make dev
 ```
+
+This runs the usual local checks and installs `memd` with build metadata.
 
 Install globally (adds `memd` to your `$PATH` via `$GOBIN` or `$GOPATH/bin`):
 
@@ -51,7 +51,37 @@ go install ./cmd/memd
 memd help
 ```
 
-## Usage
+## Quick Start
+
+Initialize local state:
+
+```bash
+memd init
+```
+
+Check that everything is working:
+
+```bash
+memd doctor
+```
+
+Index the current repository:
+
+```bash
+memd ingest .
+```
+
+Example output:
+
+```bash
+$ memd ingest .
+repo:     .
+files:    42
+chunks:   87
+duration: 0.21s
+```
+
+## Commands
 
 ```bash
 memd help       # Show available commands
@@ -79,6 +109,20 @@ synchronous:  NORMAL (1)
 db_writable:  true
 ```
 
+## Ingest
+
+`memd ingest` walks a repository, reads supported text files, splits them into chunks, and stores them in a local SQLite database.
+
+Right now it:
+
+- supports common code and text file types such as Go, JavaScript, TypeScript, Python, JSON, YAML, Markdown, and SQL
+- skips common generated or dependency directories such as `.git`, `node_modules`, `dist`, `build`, `target`, and `vendor`
+- skips binary files
+- uses deterministic chunking so repeated ingests are predictable
+- replaces the stored index for the same repository when you ingest it again
+
+Before using `memd ingest`, run `memd init`.
+
 ## Data Storage
 
 `memd` follows platform conventions for local application state:
@@ -89,18 +133,44 @@ db_writable:  true
 | macOS    | `~/Library/Application Support/memd` |
 | Windows  | `%AppData%\memd`                     |
 
+You can override the default state directory with `MEMD_HOME`:
+
+```bash
+MEMD_HOME=/tmp/memd memd doctor
+```
+
 The storage directory contains:
 
 - `memd.db` — SQLite database for structured state
 - `blobs/` — directory for raw content blobs
 
+## Developer Workflow
+
+Use the Makefile for common local tasks:
+
+```bash
+make dev
+make ci
+```
+
+- `make dev` runs the usual local development steps and installs the CLI
+- `make ci` runs the stricter CI checks
+
+If you just want a local development install, start with `make dev`.
+
 ## Status
 
-**Early development.** CLI scaffolding is in place. Core interfaces may change before a stable release.
+**Early development.** The current CLI can initialize local state, run health checks, and ingest repositories into local searchable memory. Core interfaces may still change before a stable release.
+
+## Current Limits
+
+- There is no command yet to query, search, or bundle stored data.
+- Ingest currently uses a fixed list of supported file extensions
+- Some CLI behavior and storage details may still change
 
 ## Contributing
 
-This is currently a solo project. Issues and pull requests are welcome.
+Issues and pull requests are welcome!
 
 ## Attribution
 
