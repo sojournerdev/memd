@@ -59,7 +59,7 @@ Initialize local state:
 memd init
 ```
 
-Check that everything is working:
+Verify your setup:
 
 ```bash
 memd doctor
@@ -71,15 +71,7 @@ Index the current repository:
 memd ingest .
 ```
 
-Example output:
-
-```bash
-$ memd ingest .
-repo:     .
-files:    42
-chunks:   87
-duration: 0.21s
-```
+For a step-by-step setup guide with expected output, storage details, and troubleshooting, see [Getting Started](./docs/getting-started.md).
 
 ## Commands
 
@@ -91,58 +83,9 @@ memd version    # Print version information
 memd doctor     # Validate local configuration
 ```
 
-### Verifying your setup
+## Documentation
 
-Run `memd doctor` to confirm your installation and see where state is stored:
-
-```bash
-$ memd doctor
-OK
-state_dir:    /home/marcos/.local/state/memd
-db_path:      /home/marcos/.local/state/memd/memd.db
-blobs_dir:    /home/marcos/.local/state/memd/blobs
-journal_mode: wal
-sqlite_ver:   3.51.2
-foreign_keys: true
-busy_timeout: 5000ms
-synchronous:  NORMAL (1)
-db_writable:  true
-```
-
-## Ingest
-
-`memd ingest` walks a repository, reads supported text files, splits them into chunks, and stores them in a local SQLite database.
-
-Right now it:
-
-- supports common code and text file types such as Go, JavaScript, TypeScript, Python, JSON, YAML, Markdown, and SQL
-- skips common generated or dependency directories such as `.git`, `node_modules`, `dist`, `build`, `target`, and `vendor`
-- skips binary files
-- uses deterministic chunking so repeated ingests are predictable
-- replaces the stored index for the same repository when you ingest it again
-
-Before using `memd ingest`, run `memd init`.
-
-## Data Storage
-
-`memd` follows platform conventions for local application state:
-
-| Platform | Default path                         |
-| -------- | ------------------------------------ |
-| Linux    | `~/.local/state/memd`                |
-| macOS    | `~/Library/Application Support/memd` |
-| Windows  | `%AppData%\memd`                     |
-
-You can override the default state directory with `MEMD_HOME`:
-
-```bash
-MEMD_HOME=/tmp/memd memd doctor
-```
-
-The storage directory contains:
-
-- `memd.db` — SQLite database for structured state
-- `blobs/` — directory for raw content blobs
+- [Getting Started](./docs/getting-started.md) — installation, first run, storage, and troubleshooting
 
 ## Developer Workflow
 
