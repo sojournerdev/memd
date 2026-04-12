@@ -19,6 +19,9 @@ const (
 	blobsDirName = "blobs"
 )
 
+// Paths describes the on-disk layout memd uses for local state.
+// The fields are derived from a single state directory and are expected to
+// remain consistent with that layout.
 type Paths struct {
 	StateDir string
 	DBPath   string

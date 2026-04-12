@@ -1,36 +1,48 @@
-CREATE TABLE repo_files (
-    repo_root TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    content_sha256 TEXT NOT NULL,
-    byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
-    chunk_count INTEGER NOT NULL CHECK (chunk_count >= 0),
-    PRIMARY KEY (repo_root, file_path),
-    CHECK (length(repo_root) > 0),
-    CHECK (length(file_path) > 0),
-    CHECK (length(content_sha256) > 0)
-) WITHOUT ROWID;
-
-CREATE TABLE repo_chunks (
-    chunk_id TEXT PRIMARY KEY,
-    repo_root TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+CREATE TABLE memories (
+    memory_id TEXT PRIMARY KEY,
+    project_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
     content TEXT NOT NULL,
-    content_sha256 TEXT NOT NULL,
-    FOREIGN KEY (repo_root, file_path) REFERENCES repo_files(repo_root, file_path) ON DELETE CASCADE,
-    UNIQUE (repo_root, file_path, chunk_index),
-    CHECK (length(chunk_id) > 0),
-    CHECK (length(content_sha256) > 0)
-) WITHOUT ROWID;
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at_ns INTEGER NOT NULL,
+    updated_at_ns INTEGER NOT NULL,
 
-CREATE INDEX idx_repo_chunks_repo_file_chunk
-    ON repo_chunks(repo_root, file_path, chunk_index);
+    CHECK (length(trim(memory_id)) > 0),
+    CHECK (length(trim(project_key)) > 0),
+    CHECK (length(trim(title)) > 0),
+    CHECK (length(trim(summary)) > 0),
+    CHECK (length(trim(content)) > 0),
+    CHECK (created_at_ns > 0),
+    CHECK (updated_at_ns > 0),
+    CHECK (updated_at_ns >= created_at_ns),
+    CHECK (json_valid(metadata_json)),
+    CHECK (json_type(metadata_json) = 'object')
+) STRICT, WITHOUT ROWID;
 
-CREATE INDEX idx_repo_chunks_repo_root
-    ON repo_chunks(repo_root);
+CREATE TABLE memory_tags (
+    memory_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
 
-CREATE VIRTUAL TABLE repo_chunks_fts USING fts5(
-    chunk_id UNINDEXED,
+    PRIMARY KEY (memory_id, tag),
+    FOREIGN KEY (memory_id) REFERENCES memories(memory_id) ON DELETE CASCADE,
+
+    CHECK (length(trim(memory_id)) > 0),
+    CHECK (length(trim(tag)) > 0)
+) STRICT, WITHOUT ROWID;
+
+CREATE INDEX idx_memories_project_updated
+    ON memories(project_key, updated_at_ns DESC, memory_id);
+
+CREATE INDEX idx_memory_tags_tag
+    ON memory_tags(tag, memory_id);
+
+CREATE VIRTUAL TABLE memory_search USING fts5(
+    memory_id UNINDEXED,
+    project_key UNINDEXED,
+    title,
+    summary,
     content,
+    tags,
     tokenize = 'unicode61'
 );
