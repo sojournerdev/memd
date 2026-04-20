@@ -60,7 +60,7 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	}
 
 	for _, m := range migs {
-		if applied[m.version] {
+		if _, ok := applied[m.version]; ok {
 			if err := verifyChecksum(ctx, tx, m); err != nil {
 				return err
 			}
@@ -92,9 +92,14 @@ func loadMigrations() ([]migration, error) {
 		}
 
 		name := e.Name()
-		version, err := parseVersion(name)
+		parts := strings.SplitN(name, "_", 2)
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("store: invalid migration filename %q (want NNNN_name.sql)", name)
+		}
+
+		version, err := strconv.Atoi(parts[0])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("store: invalid migration version in %q: %w", name, err)
 		}
 		if prev, ok := seen[version]; ok {
 			return nil, fmt.Errorf("store: duplicate migration version %04d: %q and %q", version, prev, name)
@@ -121,18 +126,6 @@ func loadMigrations() ([]migration, error) {
 	return migs, nil
 }
 
-func parseVersion(filename string) (int, error) {
-	parts := strings.SplitN(filename, "_", 2)
-	if len(parts) < 2 {
-		return 0, fmt.Errorf("store: invalid migration filename %q (want NNNN_name.sql)", filename)
-	}
-	v, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, fmt.Errorf("store: invalid migration version in %q: %w", filename, err)
-	}
-	return v, nil
-}
-
 func ensureMigrationsTable(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS migrations (
@@ -140,9 +133,9 @@ func ensureMigrationsTable(ctx context.Context, tx *sql.Tx) error {
 			name TEXT NOT NULL,
 			checksum TEXT NOT NULL,
 			applied_at_ns INTEGER NOT NULL CHECK (applied_at_ns > 0),
-			CHECK (length(name) > 0),
-			CHECK (length(checksum) > 0)
-		) WITHOUT ROWID;
+			CHECK (length(trim(name)) > 0),
+			CHECK (length(trim(checksum)) > 0)
+		) STRICT, WITHOUT ROWID;
 	`)
 	if err != nil {
 		return fmt.Errorf("store: ensure migrations table: %w", err)
@@ -150,25 +143,23 @@ func ensureMigrationsTable(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-func appliedVersions(ctx context.Context, tx *sql.Tx) (map[int]bool, error) {
+func appliedVersions(ctx context.Context, tx *sql.Tx) (map[int]struct{}, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT version FROM migrations`)
 	if err != nil {
 		return nil, fmt.Errorf("store: query migrations: %w", err)
 	}
+	defer func() { _ = rows.Close() }()
 
-	out := map[int]bool{}
+	out := map[int]struct{}{}
 	for rows.Next() {
 		var v int
 		if err := rows.Scan(&v); err != nil {
 			return nil, fmt.Errorf("store: scan migration version: %w", err)
 		}
-		out[v] = true
+		out[v] = struct{}{}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: iterate migrations: %w", err)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("store: close migrations rows: %w", err)
 	}
 	return out, nil
 }

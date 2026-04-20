@@ -2,123 +2,158 @@
 
 <img src="./assets/readme-gopher.png" width="500" />
 
-Local-first context memory for AI coding agents.
+Local-first memory for AI coding agents, exposed through the Model Context
+Protocol (MCP).
 
-Human-readable · Inspectable · No cloud · No hidden state
+`memd` lets an AI assistant save and retrieve durable project context without
+shipping that context to a hosted memory service.
 
 ## Overview
 
-`memd` is a CLI for managing context memory used by AI coding agents.
-
-It is transparent and predictable by design. Your data lives locally, and you can inspect it at any time.
-
-## Goals
-
-- **Local-first** — state lives on your machine, not in the cloud
-- **Inspectable** — simple, human-readable storage
-- **Minimal CLI surface** — a small, focused command set
-
-## Requirements
-- Go `1.26` or newer
-
-Verify your installed version:
-
-```bash
-go version
-```
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/sojournerdev/memd.git
-cd memd
-```
-
-For development, use the Makefile:
-
-```bash
-make dev
-```
-
-This runs the usual local checks and installs `memd` with build metadata.
-
-Install globally (adds `memd` to your `$PATH` via `$GOBIN` or `$GOPATH/bin`):
-
-```bash
-go install ./cmd/memd
-memd help
-```
-
-## Quick Start
-
-Initialize local state:
-
-```bash
-memd init
-```
-
-Verify your setup:
-
-```bash
-memd doctor
-```
-
-Index the current repository:
-
-```bash
-memd ingest .
-```
-
-For a step-by-step setup guide with expected output, storage details, and troubleshooting, see [Getting Started](./docs/getting-started.md).
-
-## Commands
-
-```bash
-memd help       # Show available commands
-memd init       # Initialize local memd state and schema
-memd ingest .   # Index a repository into local searchable memory
-memd version    # Print version information
-memd doctor     # Validate local configuration
-```
-
-## Documentation
-
-- [Getting Started](./docs/getting-started.md) — installation, first run, storage, and troubleshooting
-
-## Developer Workflow
-
-Use the Makefile for common local tasks:
-
-```bash
-make dev
-make ci
-```
-
-- `make dev` runs the usual local development steps and installs the CLI
-- `make ci` runs the stricter CI checks
-
-If you just want a local development install, start with `make dev`.
+`memd` is a personal tool that came from an OCD-ish annoyance: I wanted to clean
+up old chats in the VS Code Codex extension without feeling like I was losing
+useful context. It lets me save the parts worth keeping before deleting the noisy
+session, so I can pull that context into another chat later.
 
 ## Status
 
-**Early development.** The current CLI can initialize local state, run health checks, and ingest repositories into local searchable memory. Core interfaces may still change before a stable release.
+Early development. The current server exposes a small MCP surface for creating
+and retrieving memories. The capture workflow is still evolving.
+
+## Principles
+
+- **Local-first**: memories are stored on your machine.
+- **Agent-friendly**: MCP tools give AI clients a direct integration point.
+- **Inspectable**: data is stored in SQLite.
+- **Small core**: persistence, application logic, and MCP transport stay
+  separate.
+
+## How It Works
+
+`memd` runs as an MCP stdio server. An MCP-capable client, such as VS Code or
+Codex, starts the server and discovers its tools.
+
+Current tools:
+
+- `create_memory`: persist a finalized memory artifact.
+- `get_memory`: retrieve a memory by its stable ID.
+
+The MCP boundary automatically adds small provenance tags and metadata so saved
+memories can be traced back to how they were captured.
+
+## Requirements
+
+- Go `1.26` or newer
+- An MCP-capable client for interactive use
+
+## Quick Start
+
+Build and run the MCP server:
+
+```sh
+make run
+```
+
+For MCP clients, configure the server command as:
+
+```sh
+go run ./cmd/memd
+```
+
+Example VS Code workspace config:
+
+```json
+{
+  "servers": {
+    "memd": {
+      "type": "stdio",
+      "command": "go",
+      "args": ["run", "./cmd/memd"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
+```
+
+Example Codex local config:
+
+```toml
+[mcp_servers.memd]
+command = "go"
+args = ["run", "./cmd/memd"]
+cwd = "/path/to/memd"
+```
+
+## Example Tool Calls
+
+Create a memory:
+
+```json
+{
+  "project_key": "memd",
+  "title": "MCP smoke test",
+  "summary": "Testing that memd can persist and retrieve memories through MCP.",
+  "content": "This memory verifies the create/get round trip through the MCP server."
+}
+```
+
+Retrieve it:
+
+```json
+{
+  "id": "mem_..."
+}
+```
+
+## Local State
+
+State is stored locally in SQLite. `memd` resolves its state directory from
+`MEMD_HOME`, `XDG_STATE_HOME`, or the OS default.
+
+## Development
+
+```sh
+make build
+make run
+make ci
+```
+
+- `make build` runs formatting, vet, tests, and builds `./.bin/memd`.
+- `make run` builds and starts the MCP server.
+- `make ci` runs the stricter local CI path.
+
+## Architecture
+
+The code is split by responsibility:
+
+- `cmd/memd`: process entrypoint and build metadata.
+- `internal/app`: application bootstrap and dependency wiring.
+- `internal/mcp`: MCP transport, tool registration, and request/response shapes.
+- `internal/memory`: memory domain types, service, and repository contract.
+- `internal/store`: SQLite implementation and migrations.
+- `internal/db`: SQLite opening and PRAGMA configuration.
+- `internal/paths`: local state path resolution.
 
 ## Current Limits
 
-- There is no command yet to query, search, or bundle stored data.
-- Ingest currently uses a fixed list of supported file extensions
-- Some CLI behavior and storage details may still change
+- Search/list tools are not implemented yet.
+- `create_memory` expects a finalized memory artifact.
+- The higher-level “save this chat context” drafting workflow is planned but not
+  implemented yet.
+- Metadata is intentionally small and currently focused on capture provenance.
 
-## Contributing
+## Roadmap
 
-Issues and pull requests are welcome!
+- Add search backed by the existing FTS table.
+- Add a higher-level context-capture workflow.
+- Add confirmation/refinement flow for generated title and summary.
+- Improve observability around MCP calls.
 
 ## Attribution
 
-The Go Gopher was originally created by Renee French.  
-Image sourced from [egonelbre/gophers](https://github.com/egonelbre/gophers) (CC0).  
+The Go Gopher was originally created by Renee French.
+Image sourced from [egonelbre/gophers](https://github.com/egonelbre/gophers)
+(CC0).
 Go and the Go Gopher are trademarks of Google LLC.
 
 ## License
