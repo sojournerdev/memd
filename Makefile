@@ -9,8 +9,6 @@ GOLANGCI_LINT := $(TOOLS_DIR)/golangci-lint
 MEMD_BIN := $(BIN_DIR)/memd
 GOVULNCHECK_VERSION ?= v1.1.4
 GOLANGCI_LINT_VERSION ?= v2.11.2
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -X main.version=$(VERSION)
 
 .PHONY: build
 build:
@@ -20,7 +18,7 @@ build:
 	go vet ./...; \
 	go test -count=1 ./...; \
 	mkdir -p "$(BIN_DIR)"; \
-	go build -trimpath -ldflags "$(LDFLAGS)" -o "$(MEMD_BIN)" $(MAIN_PKG)
+	go build -trimpath -o "$(MEMD_BIN)" $(MAIN_PKG)
 
 .PHONY: run
 run: build
@@ -54,4 +52,4 @@ ci: tools
 	go test -count=1 ./...; \
 	echo "==> build"; \
 	mkdir -p "$(BIN_DIR)"; \
-	go build -trimpath -ldflags "$(LDFLAGS)" -o "$(MEMD_BIN)" $(MAIN_PKG); \
+	go build -trimpath -o "$(MEMD_BIN)" $(MAIN_PKG); \
