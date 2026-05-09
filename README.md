@@ -1,20 +1,24 @@
 # memd
 
-**Clean chats. Keep what matters.**
+<p align="center">
+  <img
+    src="./assets/banner.png"
+    alt="memd - clean chats, keep what matters"
+    width="760"
+  />
+</p>
+
+## Overview
 
 `memd` lets you save useful context from AI chats and reuse it later, so you can
 clean up old conversations without losing the details you still want.
-
-<img src="./assets/readme-gopher.png" width="500" />
-
-## Overview
 
 `memd` comes from my OCD of cleaning up conversations when I use Codex. As I
 write this, my understanding is that you can't delete chats inside the VS Code
 extension and have to go to the backend of Codex, where it stores your chat
 sessions on disk. So I thought it would be nice to delete them inside VS Code
-using tool calls, with the added benefit of saving helpful info that I want to
-pull in later.
+using tool calls. The added benefit is saving helpful info that I want to pull
+in later.
 
 ## Goals
 
@@ -140,11 +144,6 @@ make ci
 - Add a higher-level context-capture workflow.
 - Add confirmation/refinement flow for generated title and summary.
 - Improve observability around MCP calls.
-
-## Attribution
-
-The Go Gopher was originally created by Renee French.
-Image sourced from [egonelbre/gophers](https://github.com/egonelbre/gophers).
 
 ## License
 
