@@ -12,15 +12,20 @@ import (
 	"github.com/sojournerdev/memd/internal/store"
 )
 
-// App holds long-lived resources owned by the server process.
+// App holds the long-lived resources owned by the server process.
+//
+// It gives entrypoints a single value to pass around and close when the process
+// shuts down.
 type App struct {
 	Paths  paths.Paths
 	DB     *sql.DB
 	Memory *memory.Service
 }
 
-// Bootstrap resolves runtime paths and initializes the process resources they
-// require.
+// Bootstrap resolves the default runtime paths and builds the application.
+//
+// It delegates the actual resource initialization to BootstrapPaths after
+// choosing the process paths used in normal startup.
 func Bootstrap(ctx context.Context) (*App, error) {
 	p, err := paths.Resolve()
 	if err != nil {
@@ -29,7 +34,10 @@ func Bootstrap(ctx context.Context) (*App, error) {
 	return BootstrapPaths(ctx, p)
 }
 
-// BootstrapPaths initializes process resources for p and returns a ready App.
+// BootstrapPaths builds the application using explicit runtime paths.
+//
+// It opens SQLite, runs migrations, wires the memory repository and service,
+// and returns the initialized resources as an App.
 func BootstrapPaths(ctx context.Context, p paths.Paths) (*App, error) {
 	dbh, err := db.Open(ctx, p)
 	if err != nil {

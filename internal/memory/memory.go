@@ -5,37 +5,31 @@ import (
 	"time"
 )
 
-// Memory is the application model for a persisted memory artifact.
+// Memory represents chat context captured for reuse in future conversations.
+//
+// It preserves durable details worth carrying forward so old chats can be
+// cleaned up while later conversations still receive relevant context.
 type Memory struct {
-	// ID is assigned when the memory is persisted.
-	ID string
-
+	ID         string
 	ProjectKey string
 	Title      string
-
-	// Summary is the short retrieval-oriented description used for search and recall.
-	Summary string
-
-	// Content stores the fuller captured context.
-	Content string
-
-	Tags []string
-
-	// Metadata stores optional structured data associated with the memory.
-	Metadata json.RawMessage
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Summary    string
+	Content    string
+	Tags       []string
+	Metadata   json.RawMessage
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
-// CreateInput is the caller-supplied data required to create a memory.
+// CreateInput contains the client-provided data needed to create a Memory.
+//
+// It captures the proposed memory content before validation, persistence, and
+// assignment of system-managed fields such as ID and timestamps.
 type CreateInput struct {
 	ProjectKey string
 	Title      string
 	Summary    string
 	Content    string
 	Tags       []string
-
-	// Metadata stores optional structured data supplied at creation time.
-	Metadata json.RawMessage
+	Metadata   json.RawMessage
 }

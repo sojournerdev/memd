@@ -1,32 +1,34 @@
 # memd
 
+**Clean chats. Keep what matters.**
+
+`memd` lets you save useful context from AI chats and reuse it later, so you can
+clean up old conversations without losing the details you still want.
+
 <img src="./assets/readme-gopher.png" width="500" />
-
-Local-first memory for AI coding agents, exposed through the Model Context
-Protocol (MCP).
-
-`memd` lets an AI assistant save and retrieve durable project context without
-shipping that context to a hosted memory service.
 
 ## Overview
 
-`memd` is a personal tool that came from an OCD-ish annoyance: I wanted to clean
-up old chats in the VS Code Codex extension without feeling like I was losing
-useful context. It lets me save the parts worth keeping before deleting the noisy
-session, so I can pull that context into another chat later.
+`memd` comes from my OCD of cleaning up conversations when I use Codex. As I
+write this, my understanding is that you can't delete chats inside the VS Code
+extension and have to go to the backend of Codex, where it stores your chat
+sessions on disk. So I thought it would be nice to delete them inside VS Code
+using tool calls, with the added benefit of saving helpful info that I want to
+pull in later.
 
-## Status
+## Goals
 
-Early development. The current server exposes a small MCP surface for creating
-and retrieving memories. The capture workflow is still evolving.
+- Save useful context from AI chats so it can be reused later.
+- Help keep chat history clean without losing important details.
+- Store memories locally in a format that is easy to inspect.
+- Expose an MCP surface that AI clients can use directly.
 
-## Principles
+## Non-Goals
 
-- **Local-first**: memories are stored on your machine.
-- **Agent-friendly**: MCP tools give AI clients a direct integration point.
-- **Inspectable**: data is stored in SQLite.
-- **Small core**: persistence, application logic, and MCP transport stay
-  separate.
+- Replace a full notes app or knowledge base.
+- Store entire chat transcripts by default.
+- Sync memories across machines.
+- Decide automatically what should be remembered without user review.
 
 ## How It Works
 
@@ -35,15 +37,15 @@ Codex, starts the server and discovers its tools.
 
 Current tools:
 
-- `create_memory`: persist a finalized memory artifact.
-- `get_memory`: retrieve a memory by its stable ID.
+- `create_memory`: save useful context for later.
+- `get_memory`: retrieve a saved memory by its stable ID.
 
 The MCP boundary automatically adds small provenance tags and metadata so saved
 memories can be traced back to how they were captured.
 
 ## Requirements
 
-- Go `1.26` or newer
+- Go `1.26.2` or newer
 - An MCP-capable client for interactive use
 
 ## Quick Start
@@ -51,7 +53,7 @@ memories can be traced back to how they were captured.
 Build and run the MCP server:
 
 ```sh
-make run
+make
 ```
 
 For MCP clients, configure the server command as:
@@ -113,26 +115,16 @@ State is stored locally in SQLite. `memd` resolves its state directory from
 ## Development
 
 ```sh
+make
 make build
 make run
 make ci
 ```
 
+- `make` builds and starts the MCP server.
 - `make build` runs formatting, vet, tests, and builds `./.bin/memd`.
 - `make run` builds and starts the MCP server.
 - `make ci` runs the stricter local CI path.
-
-## Architecture
-
-The code is split by responsibility:
-
-- `cmd/memd`: process entrypoint and build metadata.
-- `internal/app`: application bootstrap and dependency wiring.
-- `internal/mcp`: MCP transport, tool registration, and request/response shapes.
-- `internal/memory`: memory domain types, service, and repository contract.
-- `internal/store`: SQLite implementation and migrations.
-- `internal/db`: SQLite opening and PRAGMA configuration.
-- `internal/paths`: local state path resolution.
 
 ## Current Limits
 
@@ -152,10 +144,8 @@ The code is split by responsibility:
 ## Attribution
 
 The Go Gopher was originally created by Renee French.
-Image sourced from [egonelbre/gophers](https://github.com/egonelbre/gophers)
-(CC0).
-Go and the Go Gopher are trademarks of Google LLC.
+Image sourced from [egonelbre/gophers](https://github.com/egonelbre/gophers).
 
 ## License
 
-Licensed under the [Apache License 2.0](./LICENSE).
+Licensed under [MIT](./LICENSE).

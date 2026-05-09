@@ -7,15 +7,15 @@ import (
 
 var errNilRepository = errors.New("memory: nil repository")
 
-// Service provides application-level memory operations.
+// Service coordinates memory use cases for the application.
 //
-// It is the home for memory use cases and business rules. Persistence is
-// delegated through Repository so callers do not depend on storage details.
+// It keeps memory business rules in one place while delegating persistence to
+// Repository so callers do not depend on storage details.
 type Service struct {
 	repo Repository
 }
 
-// NewService returns a Service backed by repo.
+// NewService returns a Service that uses repo for persistence.
 func NewService(repo Repository) (*Service, error) {
 	if repo == nil {
 		return nil, errNilRepository
@@ -23,7 +23,7 @@ func NewService(repo Repository) (*Service, error) {
 	return &Service{repo: repo}, nil
 }
 
-// Create creates a memory through the configured repository.
+// Create captures input as a memory for future recall.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Memory, error) {
 	if s == nil || s.repo == nil {
 		return Memory{}, errNilRepository
@@ -31,7 +31,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Memory, error)
 	return s.repo.Create(ctx, input)
 }
 
-// Get retrieves a memory by its stable identifier.
+// Get returns a saved memory for reuse in application workflows.
 func (s *Service) Get(ctx context.Context, id string) (Memory, error) {
 	if s == nil || s.repo == nil {
 		return Memory{}, errNilRepository
