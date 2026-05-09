@@ -9,6 +9,10 @@ import (
 	"github.com/sojournerdev/memd/internal/memory"
 )
 
+// memoryResponse is the MCP-facing representation of a Memory.
+//
+// It keeps transport formatting, such as JSON field names and timestamp
+// strings, separate from the domain model.
 type memoryResponse struct {
 	ID         string         `json:"id"`
 	ProjectKey string         `json:"project_key"`

@@ -20,14 +20,17 @@ const emptyMetadataJSON = `{}`
 
 var errNilDB = errors.New("store: nil db")
 
-// SQLiteRepository implements memory.Repository using SQLite.
+// SQLiteRepository stores memories in SQLite.
+//
+// It implements memory.Repository so the application can use SQLite without
+// depending on SQLite details outside the store package.
 type SQLiteRepository struct {
 	db *sql.DB
 }
 
 var _ memory.Repository = (*SQLiteRepository)(nil)
 
-// NewSQLiteRepository returns a SQLite-backed memory repository.
+// NewSQLiteRepository returns a memory repository backed by db.
 func NewSQLiteRepository(db *sql.DB) (*SQLiteRepository, error) {
 	if db == nil {
 		return nil, errNilDB
@@ -35,7 +38,10 @@ func NewSQLiteRepository(db *sql.DB) (*SQLiteRepository, error) {
 	return &SQLiteRepository{db: db}, nil
 }
 
-// Create validates and persists a memory in a single transaction.
+// Create validates input and stores a complete memory record.
+//
+// It writes the memory, tags, and search data together so callers receive a
+// saved Memory that is ready for retrieval.
 func (r *SQLiteRepository) Create(ctx context.Context, input memory.CreateInput) (memory.Memory, error) {
 	if r == nil || r.db == nil {
 		return memory.Memory{}, errNilDB
@@ -103,7 +109,9 @@ func (r *SQLiteRepository) Create(ctx context.Context, input memory.CreateInput)
 	return record, nil
 }
 
-// Get loads a persisted memory and its tags by identifier.
+// Get loads a saved memory by ID.
+//
+// It reconstructs the domain Memory from the SQLite record and related tags.
 func (r *SQLiteRepository) Get(ctx context.Context, id string) (memory.Memory, error) {
 	if r == nil || r.db == nil {
 		return memory.Memory{}, errNilDB
@@ -250,6 +258,10 @@ func normalizeTags(tags []string) ([]string, error) {
 	return out, nil
 }
 
+// normalizeMetadata stores metadata as a compact JSON object.
+//
+// Empty metadata becomes {} so responses and persisted records have a stable
+// shape.
 func normalizeMetadata(metadata json.RawMessage) (json.RawMessage, error) {
 	if len(metadata) == 0 {
 		return json.RawMessage(emptyMetadataJSON), nil

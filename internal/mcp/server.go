@@ -11,21 +11,22 @@ import (
 
 const serverName = "memd"
 
-// Options configures process metadata for the MCP server.
+// Options configures metadata advertised by the MCP server.
 type Options struct {
 	Version string
 }
 
-// Server exposes memd's application services over the MCP transport.
+// Server exposes memd application services over MCP.
 //
-// It is intentionally transport-focused while memory rules remain in the
+// It keeps transport concerns in this package while memory rules remain in the
 // memory package.
 type Server struct {
 	server *mcp.Server
 }
 
-// New returns an MCP server exposing the memory operations needed for manual
-// testing and early client integration.
+// New returns an MCP server wired to the memory service.
+//
+// It registers the tools clients use to create and retrieve memories.
 func New(memories *memory.Service, opts Options) (*Server, error) {
 	if memories == nil {
 		return nil, errors.New("mcp: nil memory service")

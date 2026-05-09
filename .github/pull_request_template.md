@@ -1,16 +1,11 @@
 ## Summary
-- What changed?
-- Why this change?
 
-## Changes
-- Main changes
-- Behavior/API changes (if any)
-- Breaking change: none/yes
+<!--
+What changed and why?
+-->
 
-## Test Plan
-- [ ] `make ci` ran locally
-- [ ] Tests added/updated (if needed)
+## Testing
 
-## Checklist
-- [ ] Scope is focused
-- [ ] No unrelated changes
+<!--
+What did you run or verify?
+-->
