@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"errors"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -21,33 +20,26 @@ type Options struct {
 // It keeps transport concerns in this package while memory rules remain in the
 // memory package.
 type Server struct {
-	server *mcp.Server
+	srv *mcp.Server
 }
 
 // New returns an MCP server wired to the memory service.
 //
 // It registers the tools clients use to create and retrieve memories.
-func New(memories *memory.Service, opts Options) (*Server, error) {
-	if memories == nil {
-		return nil, errors.New("mcp: nil memory service")
-	}
-
-	server := mcp.NewServer(&mcp.Implementation{
+func New(memoryService *memory.Service, opts Options) *Server {
+	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    serverName,
 		Version: opts.Version,
 	}, nil)
 
-	addCreateMemoryTool(server, memories)
-	addGetMemoryTool(server, memories)
+	addCreateMemoryTool(srv, memoryService)
+	addGetMemoryTool(srv, memoryService)
 
-	return &Server{server: server}, nil
+	return &Server{srv: srv}
 }
 
 // RunStdio serves MCP over stdin/stdout until the client disconnects or ctx is
 // canceled.
 func (s *Server) RunStdio(ctx context.Context) error {
-	if s == nil || s.server == nil {
-		return errors.New("mcp: nil server")
-	}
-	return s.server.Run(ctx, &mcp.StdioTransport{})
+	return s.srv.Run(ctx, &mcp.StdioTransport{})
 }

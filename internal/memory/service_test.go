@@ -9,43 +9,6 @@ import (
 
 type testContextKey struct{}
 
-func TestNewService_ReturnsErrorForNilRepository(t *testing.T) {
-	t.Parallel()
-
-	_, err := NewService(nil)
-	if !errors.Is(err, errNilRepository) {
-		t.Fatalf("NewService(nil) error = %v, want %v", err, errNilRepository)
-	}
-}
-
-func TestService_MethodsReturnErrorForNilReceiver(t *testing.T) {
-	t.Parallel()
-
-	var svc *Service
-
-	_, err := svc.Create(context.Background(), CreateInput{})
-	if !errors.Is(err, errNilRepository) {
-		t.Fatalf("nil Create() error = %v, want %v", err, errNilRepository)
-	}
-
-	_, err = svc.Get(context.Background(), "mem_123")
-	if !errors.Is(err, errNilRepository) {
-		t.Fatalf("nil Get() error = %v, want %v", err, errNilRepository)
-	}
-
-	svc = &Service{}
-
-	_, err = svc.Create(context.Background(), CreateInput{})
-	if !errors.Is(err, errNilRepository) {
-		t.Fatalf("empty Create() error = %v, want %v", err, errNilRepository)
-	}
-
-	_, err = svc.Get(context.Background(), "mem_123")
-	if !errors.Is(err, errNilRepository) {
-		t.Fatalf("empty Get() error = %v, want %v", err, errNilRepository)
-	}
-}
-
 func TestService_DelegatesToRepository(t *testing.T) {
 	t.Parallel()
 
@@ -53,10 +16,7 @@ func TestService_DelegatesToRepository(t *testing.T) {
 		createResult: Memory{ID: "mem_123"},
 		getResult:    Memory{ID: "mem_456"},
 	}
-	svc, err := NewService(repo)
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
+	svc := NewService(repo)
 
 	created, err := svc.Create(context.Background(), CreateInput{ProjectKey: "project-a"})
 	if err != nil {
@@ -91,10 +51,7 @@ func TestService_PassesContextAndInputToRepository(t *testing.T) {
 	}
 
 	repo := &stubRepository{}
-	svc, err := NewService(repo)
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
+	svc := NewService(repo)
 
 	if _, err := svc.Create(ctx, input); err != nil {
 		t.Fatalf("Create() error = %v", err)
@@ -126,12 +83,9 @@ func TestService_PropagatesRepositoryErrors(t *testing.T) {
 		createErr: createErr,
 		getErr:    getErr,
 	}
-	svc, err := NewService(repo)
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
+	svc := NewService(repo)
 
-	_, err = svc.Create(context.Background(), CreateInput{})
+	_, err := svc.Create(context.Background(), CreateInput{})
 	if !errors.Is(err, createErr) {
 		t.Fatalf("Create() error = %v, want %v", err, createErr)
 	}

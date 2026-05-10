@@ -40,10 +40,6 @@ func toMemoryResponse(m memory.Memory) memoryResponse {
 }
 
 func encodeMetadata(metadata map[string]any) (json.RawMessage, error) {
-	if len(metadata) == 0 {
-		return nil, nil
-	}
-
 	b, err := json.Marshal(metadata)
 	if err != nil {
 		return nil, err
