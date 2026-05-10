@@ -95,15 +95,3 @@ func TestBootstrapPaths_InvalidPaths(t *testing.T) {
 		t.Fatalf("BootstrapPaths() error = %q, want prefix %q", err.Error(), "app: open db:")
 	}
 }
-
-func TestAppClose_NilSafe(t *testing.T) {
-	t.Parallel()
-
-	if err := (*App)(nil).Close(); err != nil {
-		t.Fatalf("(*App)(nil).Close() error = %v", err)
-	}
-
-	if err := (&App{}).Close(); err != nil {
-		t.Fatalf("(&App{}).Close() error = %v", err)
-	}
-}

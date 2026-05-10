@@ -35,12 +35,9 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	server, err := mcp.New(app.Memory, mcp.Options{
+	srv := mcp.New(app.Memory, mcp.Options{
 		Version: version,
 	})
-	if err != nil {
-		return fmt.Errorf("create mcp server: %w", err)
-	}
 
-	return server.RunStdio(ctx)
+	return srv.RunStdio(ctx)
 }

@@ -59,25 +59,14 @@ func BootstrapPaths(ctx context.Context, p paths.Paths) (*App, error) {
 		return nil, fmt.Errorf("app: create memory repository: %w", err)
 	}
 
-	memoryService, err := memory.NewService(memories)
-	if err != nil {
-		if closeErr := dbh.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close db: %w", closeErr))
-		}
-		return nil, fmt.Errorf("app: create memory service: %w", err)
-	}
-
 	return &App{
 		Paths:  p,
 		DB:     dbh,
-		Memory: memoryService,
+		Memory: memory.NewService(memories),
 	}, nil
 }
 
 // Close releases the resources owned by App.
 func (app *App) Close() error {
-	if app == nil || app.DB == nil {
-		return nil
-	}
 	return app.DB.Close()
 }

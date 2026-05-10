@@ -10,7 +10,22 @@ import (
 	"github.com/sojournerdev/memd/internal/memory"
 )
 
-const createMemoryToolName = "create_memory"
+const (
+	createMemoryToolName = "create_memory"
+	getMemoryToolName    = "get_memory"
+)
+
+func addTool[In, Out any](
+	server *sdkmcp.Server,
+	name string,
+	description string,
+	handler func(context.Context, *sdkmcp.CallToolRequest, In) (*sdkmcp.CallToolResult, Out, error),
+) {
+	sdkmcp.AddTool(server, &sdkmcp.Tool{
+		Name:        name,
+		Description: description,
+	}, handler)
+}
 
 type createMemoryRequest struct {
 	ProjectKey string         `json:"project_key" jsonschema:"project or workspace key for the memory"`
@@ -21,25 +36,24 @@ type createMemoryRequest struct {
 	Metadata   map[string]any `json:"metadata,omitempty" jsonschema:"optional metadata object"`
 }
 
-func addCreateMemoryTool(server *sdkmcp.Server, memories *memory.Service) {
-	sdkmcp.AddTool(server, &sdkmcp.Tool{
-		Name:        createMemoryToolName,
-		Description: "Persist a memory artifact in memd.",
-	}, func(ctx context.Context, _ *sdkmcp.CallToolRequest, req createMemoryRequest) (*sdkmcp.CallToolResult, memoryResponse, error) {
-		createInput, err := req.toCreateInput()
-		if err != nil {
-			return nil, memoryResponse{}, err
-		}
+func addCreateMemoryTool(server *sdkmcp.Server, memoryService *memory.Service) {
+	addTool(server, createMemoryToolName, "Persist a memory artifact in memd.",
+		func(ctx context.Context, _ *sdkmcp.CallToolRequest, req createMemoryRequest) (*sdkmcp.CallToolResult, memoryResponse, error) {
+			createInput, err := req.toCreateInput()
+			if err != nil {
+				return nil, memoryResponse{}, err
+			}
 
-		created, err := memories.Create(ctx, createInput)
-		if err != nil {
-			return nil, memoryResponse{}, err
-		}
-		return nil, toMemoryResponse(created), nil
-	})
+			created, err := memoryService.Create(ctx, createInput)
+			if err != nil {
+				return nil, memoryResponse{}, err
+			}
+			return nil, toMemoryResponse(created), nil
+		})
 }
 
 func (req createMemoryRequest) toCreateInput() (memory.CreateInput, error) {
+	tags := mergeCreateTags(req.Tags)
 	metadata, err := encodeMetadata(mergeCreateMetadata(req.Metadata))
 	if err != nil {
 		return memory.CreateInput{}, err
@@ -50,9 +64,24 @@ func (req createMemoryRequest) toCreateInput() (memory.CreateInput, error) {
 		Title:      req.Title,
 		Summary:    req.Summary,
 		Content:    req.Content,
-		Tags:       mergeCreateTags(req.Tags),
+		Tags:       tags,
 		Metadata:   metadata,
 	}, nil
+}
+
+type getMemoryRequest struct {
+	ID string `json:"id" jsonschema:"stable memory identifier"`
+}
+
+func addGetMemoryTool(server *sdkmcp.Server, memoryService *memory.Service) {
+	addTool(server, getMemoryToolName, "Load a persisted memory by ID.",
+		func(ctx context.Context, _ *sdkmcp.CallToolRequest, req getMemoryRequest) (*sdkmcp.CallToolResult, memoryResponse, error) {
+			got, err := memoryService.Get(ctx, req.ID)
+			if err != nil {
+				return nil, memoryResponse{}, err
+			}
+			return nil, toMemoryResponse(got), nil
+		})
 }
 
 func mergeCreateMetadata(metadata map[string]any) map[string]any {

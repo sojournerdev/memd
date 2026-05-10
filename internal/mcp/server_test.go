@@ -6,24 +6,11 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/sojournerdev/memd/internal/memory"
 )
-
-func TestNew_ReturnsErrorForNilMemoryService(t *testing.T) {
-	t.Parallel()
-
-	_, err := New(nil, Options{})
-	if err == nil {
-		t.Fatal("New(nil) error = nil, want error")
-	}
-	if !strings.Contains(err.Error(), "nil memory service") {
-		t.Fatalf("New(nil) error = %q, want substring %q", err.Error(), "nil memory service")
-	}
-}
 
 func TestCreateMemoryRequest_ToCreateInput(t *testing.T) {
 	t.Parallel()
@@ -204,33 +191,13 @@ func TestDecodeMetadata_ReturnsEmptyMapForInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestServer_RunStdioNilSafe(t *testing.T) {
-	t.Parallel()
-
-	var srv *Server
-	err := srv.RunStdio(context.Background())
-	if err == nil {
-		t.Fatal("RunStdio(nil) error = nil, want error")
-	}
-	if !strings.Contains(err.Error(), "nil server") {
-		t.Fatalf("RunStdio(nil) error = %q, want substring %q", err.Error(), "nil server")
-	}
-}
-
 func TestNew_AcceptsValidMemoryService(t *testing.T) {
 	t.Parallel()
 
-	svc, err := memory.NewService(stubRepository{})
-	if err != nil {
-		t.Fatalf("memory.NewService() error = %v", err)
-	}
-
-	server, err := New(svc, Options{Version: "test-version"})
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	if server == nil || server.server == nil {
-		t.Fatal("server = nil, want initialized MCP server")
+	memoryService := memory.NewService(stubRepository{})
+	srv := New(memoryService, Options{Version: "test-version"})
+	if srv == nil || srv.srv == nil {
+		t.Fatal("srv = nil, want initialized MCP server")
 	}
 }
 
