@@ -2,12 +2,6 @@ package memory
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrInvalidInput = errors.New("memory: invalid input")
-	ErrNotFound     = errors.New("memory: not found")
 )
 
 // Repository defines how memories are persisted and retrieved.
@@ -22,12 +16,11 @@ type Repository interface {
 	// be accepted.
 	Create(ctx context.Context, input CreateInput) (Memory, error)
 
-	// Get retrieves a previously saved Memory by its stable identifier.
+	// Search finds saved memories relevant to input.
 	//
-	// It gives callers the canonical stored record instead of requiring them to
-	// know how memories are located in the backing store. It returns ErrInvalidInput
-	// for malformed IDs and ErrNotFound when no memory exists.
-	Get(ctx context.Context, id string) (Memory, error)
+	// It gives callers a topic-based recall path so they do not need to know
+	// system-generated memory IDs.
+	Search(ctx context.Context, input SearchInput) ([]Memory, error)
 }
 
 // Service coordinates memory use cases for the application.
@@ -43,12 +36,10 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// Create captures input as a memory for future recall.
 func (s *Service) Create(ctx context.Context, input CreateInput) (Memory, error) {
 	return s.repo.Create(ctx, input)
 }
 
-// Get returns a saved memory for reuse in application workflows.
-func (s *Service) Get(ctx context.Context, id string) (Memory, error) {
-	return s.repo.Get(ctx, id)
+func (s *Service) Search(ctx context.Context, input SearchInput) ([]Memory, error) {
+	return s.repo.Search(ctx, input)
 }

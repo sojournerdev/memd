@@ -1,9 +1,6 @@
 package mcp
 
 import (
-	"encoding/json"
-	"log/slog"
-	"slices"
 	"time"
 
 	"github.com/sojournerdev/memd/internal/memory"
@@ -14,15 +11,17 @@ import (
 // It keeps transport formatting, such as JSON field names and timestamp
 // strings, separate from the domain model.
 type memoryResponse struct {
-	ID         string         `json:"id"`
-	ProjectKey string         `json:"project_key"`
-	Title      string         `json:"title"`
-	Summary    string         `json:"summary"`
-	Content    string         `json:"content"`
-	Tags       []string       `json:"tags,omitempty"`
-	Metadata   map[string]any `json:"metadata"`
-	CreatedAt  string         `json:"created_at"`
-	UpdatedAt  string         `json:"updated_at"`
+	ID         string `json:"id"`
+	ProjectKey string `json:"project_key"`
+	Title      string `json:"title"`
+	Summary    string `json:"summary"`
+	Content    string `json:"content"`
+	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at"`
+}
+
+type searchMemoriesResponse struct {
+	Memories []memoryResponse `json:"memories"`
 }
 
 func toMemoryResponse(m memory.Memory) memoryResponse {
@@ -32,33 +31,15 @@ func toMemoryResponse(m memory.Memory) memoryResponse {
 		Title:      m.Title,
 		Summary:    m.Summary,
 		Content:    m.Content,
-		Tags:       slices.Clone(m.Tags),
-		Metadata:   decodeMetadata(m.Metadata),
 		CreatedAt:  m.CreatedAt.UTC().Format(time.RFC3339Nano),
 		UpdatedAt:  m.UpdatedAt.UTC().Format(time.RFC3339Nano),
 	}
 }
 
-func encodeMetadata(metadata map[string]any) (json.RawMessage, error) {
-	b, err := json.Marshal(metadata)
-	if err != nil {
-		return nil, err
+func toMemoryResponses(memories []memory.Memory) []memoryResponse {
+	out := make([]memoryResponse, 0, len(memories))
+	for _, m := range memories {
+		out = append(out, toMemoryResponse(m))
 	}
-	return json.RawMessage(b), nil
-}
-
-func decodeMetadata(metadata json.RawMessage) map[string]any {
-	if len(metadata) == 0 {
-		return map[string]any{}
-	}
-
-	var decoded map[string]any
-	if err := json.Unmarshal(metadata, &decoded); err != nil {
-		slog.Warn("mcp: failed to decode memory metadata", "err", err)
-		return map[string]any{}
-	}
-	if decoded == nil {
-		return map[string]any{}
-	}
-	return decoded
+	return out
 }

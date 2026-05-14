@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -15,8 +14,6 @@ type Memory struct {
 	Title      string
 	Summary    string
 	Content    string
-	Tags       []string
-	Metadata   json.RawMessage
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
@@ -30,6 +27,15 @@ type CreateInput struct {
 	Title      string
 	Summary    string
 	Content    string
-	Tags       []string
-	Metadata   json.RawMessage
+}
+
+// SearchInput contains the client-provided data needed to find saved memories.
+//
+// It keeps search scoped to a project so callers retrieve context from the
+// workspace they are currently operating in instead of mixing unrelated saved
+// context together.
+type SearchInput struct {
+	ProjectKey string
+	Query      string
+	Limit      int
 }
