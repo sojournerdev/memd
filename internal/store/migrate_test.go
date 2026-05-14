@@ -19,10 +19,8 @@ func TestMigrate_CreatesExpectedSchema(t *testing.T) {
 		name       string
 	}{
 		{objectType: "table", name: "memories"},
-		{objectType: "table", name: "memory_tags"},
 		{objectType: "table", name: "migrations"},
 		{objectType: "index", name: "idx_memories_project_updated"},
-		{objectType: "index", name: "idx_memory_tags_tag"},
 		{objectType: "table", name: "memory_search"},
 	} {
 		if !sqliteObjectExists(t, db, object.objectType, object.name) {
@@ -65,18 +63,14 @@ func TestMigrate_EnforcesSchemaConstraints(t *testing.T) {
 	}{
 		{
 			name: "blank title",
-			args: []any{"mem-1", "project-a", "   ", "summary", "content", `{}`, 1, 1},
-		},
-		{
-			name: "non object metadata_json",
-			args: []any{"mem-2", "project-a", "Title", "summary", "content", `[]`, 1, 1},
+			args: []any{"mem-1", "project-a", "   ", "summary", "content", 1, 1},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := db.Exec(`
 				INSERT INTO memories (
-					memory_id, project_key, title, summary, content, metadata_json, created_at_ns, updated_at_ns
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+					memory_id, project_key, title, summary, content, created_at_ns, updated_at_ns
+				) VALUES (?, ?, ?, ?, ?, ?, ?)
 			`, tc.args...)
 			if err == nil {
 				t.Fatalf("expected insert to fail for %s", tc.name)
@@ -92,53 +86,15 @@ func TestMigrate_AllowsValidMemoryInsert(t *testing.T) {
 
 	_, err := db.Exec(`
 		INSERT INTO memories (
-			memory_id, project_key, title, summary, content, metadata_json, created_at_ns, updated_at_ns
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, "mem-1", "project-a", "Title", "summary", "content", `{"source":"test"}`, 1, 2)
+			memory_id, project_key, title, summary, content, created_at_ns, updated_at_ns
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, "mem-1", "project-a", "Title", "summary", "content", 1, 2)
 	if err != nil {
 		t.Fatalf("INSERT INTO memories error = %v", err)
 	}
 
 	if got := countRows(t, db, `SELECT COUNT(*) FROM memories WHERE memory_id = ?`, "mem-1"); got != 1 {
 		t.Fatalf("inserted memories row count = %d, want 1", got)
-	}
-}
-
-func TestMigrate_MemoryTagsForeignKeyCascade(t *testing.T) {
-	t.Parallel()
-
-	db := migratedTestDB(t)
-
-	_, err := db.Exec(`
-		INSERT INTO memories (
-			memory_id, project_key, title, summary, content, metadata_json, created_at_ns, updated_at_ns
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, "mem-1", "project-a", "Title", "summary", "content", `{}`, 1, 2)
-	if err != nil {
-		t.Fatalf("INSERT INTO memories error = %v", err)
-	}
-
-	_, err = db.Exec(`INSERT INTO memory_tags (memory_id, tag) VALUES (?, ?)`, "missing-memory", "orphan")
-	if err == nil {
-		t.Fatal("expected orphan memory_tags insert to fail")
-	}
-
-	_, err = db.Exec(`INSERT INTO memory_tags (memory_id, tag) VALUES (?, ?)`, "mem-1", "tag-a")
-	if err != nil {
-		t.Fatalf("INSERT INTO memory_tags error = %v", err)
-	}
-
-	if got := countRows(t, db, `SELECT COUNT(*) FROM memory_tags WHERE memory_id = ?`, "mem-1"); got != 1 {
-		t.Fatalf("memory_tags row count before delete = %d, want 1", got)
-	}
-
-	_, err = db.Exec(`DELETE FROM memories WHERE memory_id = ?`, "mem-1")
-	if err != nil {
-		t.Fatalf("DELETE FROM memories error = %v", err)
-	}
-
-	if got := countRows(t, db, `SELECT COUNT(*) FROM memory_tags WHERE memory_id = ?`, "mem-1"); got != 0 {
-		t.Fatalf("memory_tags row count after delete = %d, want 0", got)
 	}
 }
 

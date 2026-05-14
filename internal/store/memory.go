@@ -1,24 +1,15 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/sojournerdev/memd/internal/memory"
 )
-
-const emptyMetadataJSON = `{}`
-
-var errNilDB = errors.New("store: nil db")
 
 // SQLiteRepository stores memories in SQLite.
 //
@@ -33,26 +24,30 @@ var _ memory.Repository = (*SQLiteRepository)(nil)
 // NewSQLiteRepository returns a memory repository backed by db.
 func NewSQLiteRepository(db *sql.DB) (*SQLiteRepository, error) {
 	if db == nil {
-		return nil, errNilDB
+		return nil, fmt.Errorf("store: nil db")
 	}
 	return &SQLiteRepository{db: db}, nil
 }
 
 // Create validates input and stores a complete memory record.
 //
-// It writes the memory, tags, and search data together so callers receive a
-// saved Memory that is ready for retrieval.
+// It writes the memory and search data together so callers receive a saved
+// Memory that is ready for retrieval.
 func (r *SQLiteRepository) Create(ctx context.Context, input memory.CreateInput) (memory.Memory, error) {
-	if r == nil || r.db == nil {
-		return memory.Memory{}, errNilDB
-	}
-	if ctx == nil {
-		ctx = context.Background()
+	id, err := newMemoryID()
+	if err != nil {
+		return memory.Memory{}, fmt.Errorf("store: generate memory id: %w", err)
 	}
 
-	record, err := newMemoryRecord(input)
-	if err != nil {
-		return memory.Memory{}, err
+	now := time.Now().UTC()
+	record := memory.Memory{
+		ID:         id,
+		ProjectKey: input.ProjectKey,
+		Title:      input.Title,
+		Summary:    input.Summary,
+		Content:    input.Content,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -64,40 +59,29 @@ func (r *SQLiteRepository) Create(ctx context.Context, input memory.CreateInput)
 	if _, err := tx.ExecContext(
 		ctx,
 		`INSERT INTO memories (
-			memory_id, project_key, title, summary, content, metadata_json, created_at_ns, updated_at_ns
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			memory_id, project_key, title, summary, content, created_at_ns, updated_at_ns
+		) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		record.ID,
 		record.ProjectKey,
 		record.Title,
 		record.Summary,
 		record.Content,
-		string(record.Metadata),
 		record.CreatedAt.UnixNano(),
 		record.UpdatedAt.UnixNano(),
 	); err != nil {
 		return memory.Memory{}, fmt.Errorf("store: insert memory: %w", err)
 	}
 
-	for _, tag := range record.Tags {
-		if _, err := tx.ExecContext(
-			ctx,
-			`INSERT INTO memory_tags (memory_id, tag) VALUES (?, ?)`,
-			record.ID,
-			tag,
-		); err != nil {
-			return memory.Memory{}, fmt.Errorf("store: insert memory tag %q: %w", tag, err)
-		}
-	}
-
 	if _, err := tx.ExecContext(
 		ctx,
-		`INSERT INTO memory_search (memory_id, project_key, title, summary, content, tags) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO memory_search (
+			memory_id, project_key, title, summary, content
+		) VALUES (?, ?, ?, ?, ?)`,
 		record.ID,
 		record.ProjectKey,
 		record.Title,
 		record.Summary,
 		record.Content,
-		strings.Join(record.Tags, " "),
 	); err != nil {
 		return memory.Memory{}, fmt.Errorf("store: insert memory search row: %w", err)
 	}
@@ -109,182 +93,57 @@ func (r *SQLiteRepository) Create(ctx context.Context, input memory.CreateInput)
 	return record, nil
 }
 
-// Get loads a saved memory by ID.
+// Search finds saved memories by matching the persisted search index.
 //
-// It reconstructs the domain Memory from the SQLite record and related tags.
-func (r *SQLiteRepository) Get(ctx context.Context, id string) (memory.Memory, error) {
-	if r == nil || r.db == nil {
-		return memory.Memory{}, errNilDB
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return memory.Memory{}, memory.ErrInvalidInput
-	}
-
-	var (
-		record                   memory.Memory
-		metadata                 string
-		createdAtNS, updatedAtNS int64
-	)
-	err := r.db.QueryRowContext(
+// It keeps recall backed by SQLite FTS so callers can rediscover context by
+// topic instead of needing to know a memory's generated ID.
+func (r *SQLiteRepository) Search(ctx context.Context, input memory.SearchInput) ([]memory.Memory, error) {
+	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT memory_id, project_key, title, summary, content, metadata_json, created_at_ns, updated_at_ns
-		 FROM memories
-		 WHERE memory_id = ?`,
-		id,
-	).Scan(
-		&record.ID,
-		&record.ProjectKey,
-		&record.Title,
-		&record.Summary,
-		&record.Content,
-		&metadata,
-		&createdAtNS,
-		&updatedAtNS,
+		`SELECT m.memory_id, m.project_key, m.title, m.summary, m.content,
+		        m.created_at_ns, m.updated_at_ns
+		 FROM memory_search
+		 JOIN memories m ON m.memory_id = memory_search.memory_id
+		 WHERE memory_search MATCH ?
+		   AND memory_search.project_key = ?
+		 ORDER BY bm25(memory_search) ASC, m.updated_at_ns DESC, m.memory_id
+		 LIMIT ?`,
+		input.Query,
+		input.ProjectKey,
+		input.Limit,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return memory.Memory{}, memory.ErrNotFound
-		}
-		return memory.Memory{}, fmt.Errorf("store: get memory %q: %w", id, err)
-	}
-
-	tags, err := loadTags(ctx, r.db, id)
-	if err != nil {
-		return memory.Memory{}, err
-	}
-
-	record.Metadata = json.RawMessage(metadata)
-	record.Tags = tags
-	record.CreatedAt = time.Unix(0, createdAtNS).UTC()
-	record.UpdatedAt = time.Unix(0, updatedAtNS).UTC()
-	return record, nil
-}
-
-func loadTags(ctx context.Context, db *sql.DB, id string) ([]string, error) {
-	rows, err := db.QueryContext(
-		ctx,
-		`SELECT tag FROM memory_tags WHERE memory_id = ? ORDER BY tag`,
-		id,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("store: query tags for memory %q: %w", id, err)
+		return nil, fmt.Errorf("store: search memories: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var tags []string
+	var results []memory.Memory
 	for rows.Next() {
-		var tag string
-		if err := rows.Scan(&tag); err != nil {
-			return nil, fmt.Errorf("store: scan tag for memory %q: %w", id, err)
+		var (
+			record                   memory.Memory
+			createdAtNS, updatedAtNS int64
+		)
+		if err := rows.Scan(
+			&record.ID,
+			&record.ProjectKey,
+			&record.Title,
+			&record.Summary,
+			&record.Content,
+			&createdAtNS,
+			&updatedAtNS,
+		); err != nil {
+			return nil, fmt.Errorf("store: scan memory search result: %w", err)
 		}
-		tags = append(tags, tag)
+
+		record.CreatedAt = time.Unix(0, createdAtNS).UTC()
+		record.UpdatedAt = time.Unix(0, updatedAtNS).UTC()
+		results = append(results, record)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: iterate tags for memory %q: %w", id, err)
-	}
-	return tags, nil
-}
-
-func newMemoryRecord(input memory.CreateInput) (memory.Memory, error) {
-	projectKey := strings.TrimSpace(input.ProjectKey)
-	title := strings.TrimSpace(input.Title)
-	summary := strings.TrimSpace(input.Summary)
-	content := strings.TrimSpace(input.Content)
-
-	switch {
-	case projectKey == "":
-		return memory.Memory{}, memory.ErrInvalidInput
-	case title == "":
-		return memory.Memory{}, memory.ErrInvalidInput
-	case summary == "":
-		return memory.Memory{}, memory.ErrInvalidInput
-	case content == "":
-		return memory.Memory{}, memory.ErrInvalidInput
+		return nil, fmt.Errorf("store: iterate memory search results: %w", err)
 	}
 
-	tags, err := normalizeTags(input.Tags)
-	if err != nil {
-		return memory.Memory{}, err
-	}
-
-	metadata, err := normalizeMetadata(input.Metadata)
-	if err != nil {
-		return memory.Memory{}, err
-	}
-
-	id, err := newMemoryID()
-	if err != nil {
-		return memory.Memory{}, fmt.Errorf("store: generate memory id: %w", err)
-	}
-
-	now := time.Now().UTC()
-	return memory.Memory{
-		ID:         id,
-		ProjectKey: projectKey,
-		Title:      title,
-		Summary:    summary,
-		Content:    content,
-		Tags:       tags,
-		Metadata:   metadata,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-	}, nil
-}
-
-func normalizeTags(tags []string) ([]string, error) {
-	if len(tags) == 0 {
-		return nil, nil
-	}
-
-	seen := make(map[string]struct{}, len(tags))
-	out := make([]string, 0, len(tags))
-	for _, tag := range tags {
-		tag = strings.TrimSpace(tag)
-		if tag == "" {
-			return nil, memory.ErrInvalidInput
-		}
-		if _, ok := seen[tag]; ok {
-			return nil, memory.ErrInvalidInput
-		}
-		seen[tag] = struct{}{}
-		out = append(out, tag)
-	}
-	slices.Sort(out)
-	return out, nil
-}
-
-// normalizeMetadata stores metadata as a compact JSON object.
-//
-// Empty metadata becomes {} so responses and persisted records have a stable
-// shape.
-func normalizeMetadata(metadata json.RawMessage) (json.RawMessage, error) {
-	if len(metadata) == 0 {
-		return json.RawMessage(emptyMetadataJSON), nil
-	}
-
-	trimmed := bytes.TrimSpace(metadata)
-	if len(trimmed) == 0 {
-		return json.RawMessage(emptyMetadataJSON), nil
-	}
-
-	var decoded any
-	if err := json.Unmarshal(trimmed, &decoded); err != nil {
-		return nil, memory.ErrInvalidInput
-	}
-	if _, ok := decoded.(map[string]any); !ok {
-		return nil, memory.ErrInvalidInput
-	}
-
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, trimmed); err != nil {
-		return nil, memory.ErrInvalidInput
-	}
-	return bytes.Clone(compact.Bytes()), nil
+	return results, nil
 }
 
 func newMemoryID() (string, error) {

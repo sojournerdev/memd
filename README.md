@@ -10,8 +10,7 @@
 
 ## Overview
 
-`memd` lets you save useful context from AI chats and reuse it later, so you can
-clean up old conversations without losing the details you still want.
+`memd` lets you save useful context from AI chats and reuse it later.
 
 `memd` comes from my OCD of cleaning up conversations when I use Codex. As I
 write this, my understanding is that you can't delete chats inside the VS Code
@@ -36,35 +35,20 @@ in later.
 
 ## How It Works
 
-`memd` runs as an MCP stdio server. An MCP-capable client, such as VS Code or
-Codex, starts the server and discovers its tools.
+`memd` runs as a local MCP server using stdio. At the moment, it does not
+support other implementations of the MCP protocol.
 
 Current tools:
 
 - `create_memory`: save useful context for later.
-- `get_memory`: retrieve a saved memory by its stable ID.
-
-The MCP boundary automatically adds small provenance tags and metadata so saved
-memories can be traced back to how they were captured.
+- `search_memories`: search saved memories by topic.
 
 ## Requirements
 
-- Go `1.26.2` or newer
+- Go `1.26.3` or newer
 - An MCP-capable client for interactive use
 
 ## Quick Start
-
-Build and run the MCP server:
-
-```sh
-make
-```
-
-For MCP clients, configure the server command as:
-
-```sh
-go run ./cmd/memd
-```
 
 Example VS Code workspace config:
 
@@ -90,60 +74,19 @@ args = ["run", "./cmd/memd"]
 cwd = "/path/to/memd"
 ```
 
-## Example Tool Calls
-
-Create a memory:
-
-```json
-{
-  "project_key": "memd",
-  "title": "MCP smoke test",
-  "summary": "Testing that memd can persist and retrieve memories through MCP.",
-  "content": "This memory verifies the create/get round trip through the MCP server."
-}
-```
-
-Retrieve it:
-
-```json
-{
-  "id": "mem_..."
-}
-```
-
-## Local State
-
-State is stored locally in SQLite. `memd` resolves its state directory from
-`MEMD_HOME`, `XDG_STATE_HOME`, or the OS default.
-
 ## Development
 
 ```sh
-make
-make build
-make run
-make ci
+make       # builds and starts the MCP stdio server.
+make build # runs formatting, vet, tests, and builds `./.bin/memd`.
+make run   # builds and starts the local MCP stdio server.
+make ci    # runs the stricter local CI path.
 ```
 
-- `make` builds and starts the MCP server.
-- `make build` runs formatting, vet, tests, and builds `./.bin/memd`.
-- `make run` builds and starts the MCP server.
-- `make ci` runs the stricter local CI path.
+## Status
 
-## Current Limits
-
-- Search/list tools are not implemented yet.
-- `create_memory` expects a finalized memory artifact.
-- The higher-level “save this chat context” drafting workflow is planned but not
-  implemented yet.
-- Metadata is intentionally small and currently focused on capture provenance.
-
-## Roadmap
-
-- Add search backed by the existing FTS table.
-- Add a higher-level context-capture workflow.
-- Add confirmation/refinement flow for generated title and summary.
-- Improve observability around MCP calls.
+`memd` currently supports creating and searching local memories through MCP.
+This is no logic of cleaning up conversations after a chat has been saved as a memory.
 
 ## License
 

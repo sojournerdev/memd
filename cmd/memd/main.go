@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -19,12 +20,18 @@ func main() {
 	defer stop()
 
 	if err := run(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			slog.Info("memd stopped", "err", err)
+			return
+		}
 		slog.Error("memd exited", "err", err)
 		os.Exit(1)
 	}
 }
 
 func run(ctx context.Context) error {
+	slog.Info("memd starting", "version", version)
+
 	app, err := app.Bootstrap(ctx)
 	if err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
@@ -39,5 +46,9 @@ func run(ctx context.Context) error {
 		Version: version,
 	})
 
-	return srv.RunStdio(ctx)
+	if err := srv.RunStdio(ctx); err != nil {
+		return fmt.Errorf("mcp stdio: %w", err)
+	}
+
+	return nil
 }
