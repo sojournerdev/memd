@@ -83,6 +83,10 @@ make run   # builds and starts the local MCP stdio server.
 make ci    # runs the stricter local CI path.
 ```
 
+## Documentation
+
+- [Architecture](./docs/ARCHITECTURE.md)
+
 ## Status
 
 `memd` currently supports creating and searching local memories through MCP.
